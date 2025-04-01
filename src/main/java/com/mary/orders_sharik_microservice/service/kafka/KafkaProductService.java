@@ -12,7 +12,6 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.header.Header;
 import org.apache.kafka.common.header.internals.RecordHeader;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.kafka.requestreply.ReplyingKafkaTemplate;
 import org.springframework.kafka.requestreply.RequestReplyFuture;
 import org.springframework.kafka.support.KafkaHeaders;
@@ -30,10 +29,8 @@ import java.util.concurrent.ExecutionException;
 @Service
 public class KafkaProductService {
 
-    @Autowired
-    private ReplyingKafkaTemplate<String, String, String> replyingKafkaTemplate;
-    @Autowired
-    private ObjectMapper objectMapper;
+    private final ReplyingKafkaTemplate<String, String, String> replyingKafkaTemplate;
+    private final ObjectMapper objectMapper;
 
     public List<Product> requestProductsByIds(List<String> ids) throws Exception {
         String valueJson = objectMapper.writeValueAsString(ids);
