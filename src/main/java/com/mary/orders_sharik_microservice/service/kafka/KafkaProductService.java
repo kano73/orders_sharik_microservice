@@ -79,7 +79,6 @@ public class KafkaProductService {
                 ConsumerRecord<String, String> response = future.get();
 
                 for (Header header : response.headers()) {
-                    System.out.println(header.toString());
                     if (header.key().equals(KafkaHeaders.EXCEPTION_MESSAGE)) {
                         throw new CompletionException(
                                 new MicroserviceExternalException(

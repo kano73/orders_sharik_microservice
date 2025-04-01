@@ -74,8 +74,6 @@ public class CartService {
             throw new MicroserviceExternalException(e);
         }
 
-        System.out.println("got products successfully :" + products);
-
         return products.stream().map(product -> {
             ProductAndQuantity productAndQuantity = new ProductAndQuantity();
             productAndQuantity.setProduct(product);
@@ -89,21 +87,16 @@ public class CartService {
 
     private void changeAmount(ActionWithCartDTO dto) {
         String cartKey = CART_KEY_PREFIX + dto.getUserId();
-        System.out.println("i will read redis");
         List<ProductIdAndQuantity> cart = redisTemplate.opsForList().range(cartKey, 0, -1);
-        System.out.println("redis: "+ cart);
 
         if (cart == null || cart.isEmpty()) {
-            System.out.println("is empty");
             addToCart(dto, cartKey);
             return;
         }
 
         boolean isChanged = false;
         for (int i = 0; i < cart.size(); i++) {
-            System.out.println("here is an error");
             ProductIdAndQuantity item = cart.get(i);
-            System.out.println("item: "+item);
             if (item.getProductId().equals(dto.getProductId())) {
                 isChanged = true;
 
@@ -114,9 +107,7 @@ public class CartService {
                     if(dto.getProductAmountLeft()<item.getQuantity()){
                         throw new ValidationFailedException("Not enough product left");
                     }
-                    System.out.println("i will write new quantity");
                     redisTemplate.opsForList().set(cartKey, i, item);
-                    System.out.println("wrote new quantity");
                 }
 
                 redisTemplate.expire(cartKey, 1, TimeUnit.HOURS);
@@ -136,8 +127,6 @@ public class CartService {
         ProductIdAndQuantity paq = new ProductIdAndQuantity();
         paq.setProductId(dto.getProductId());
         paq.setQuantity(dto.getQuantity());
-
-        System.out.println("paq i will write"+paq);
 
         redisTemplate.opsForList().rightPush(cartKey, paq);
         redisTemplate.expire(cartKey, 1, TimeUnit.HOURS);
@@ -161,17 +150,21 @@ public class CartService {
         OrdersHistory ordersHistory = historyService.getHistoryOfUserById(userId);
 
         List<OrdersHistory.CartItem> cartItems = cart.stream()
-                .map(product ->{
+                .map(paq ->{
+                    if(!paq.getProduct().isAvailable()){
+                        throw new ValidationFailedException("Product is not available: "+paq.getProduct().getName());
+                    }
+
                     OrdersHistory.CartItem item = new OrdersHistory.CartItem();
-                    item.setProduct(product.getProduct());
-                    item.setQuantity(product.getQuantity());
+                    item.setProduct(paq.getProduct());
+                    item.setQuantity(paq.getQuantity());
                     return item;
                 }).toList();
 
         if(status==OrderStatusEnum.CREATED){
             cart.forEach(productAndQuantity -> {
                 if(productAndQuantity.getProduct().getAmountLeft()<productAndQuantity.getQuantity()){
-                    throw new ValidationFailedException("Not enough product left:"+productAndQuantity.getProduct().getName());
+                    throw new ValidationFailedException("Not enough product left: "+productAndQuantity.getProduct().getName());
                 }
             });
         }

@@ -30,14 +30,15 @@ public class RequestProcessingService {
         String userId;
         try {
             userId = objectMapper.readValue(message.value(), String.class);
+
+            Objects.requireNonNull(userId);
+
+            cartService.emptyCart(userId);
         } catch (Exception e) {
-            sendResponse(message, "Exception while parsing : "+ String.class.getName(), true);
+            sendResponse(message, "Unable to empty cart: "+e.getMessage(), true);
             return;
         }
-        Objects.requireNonNull(userId);
 
-        // Обрабатываем запрос
-        cartService.emptyCart(userId);
 
         sendResponse(message, true, false);
     }
@@ -46,26 +47,35 @@ public class RequestProcessingService {
         OrderDetailsDTO orderDetails;
         try {
             orderDetails = objectMapper.readValue(message.value(), OrderDetailsDTO.class);
+            Objects.requireNonNull(orderDetails);
+            cartService.makeOrder(orderDetails.getUserId(), orderDetails.getCustomAddress());
         } catch (Exception e) {
-            sendResponse(message, "Exception while parsing : "+ OrderDetailsDTO.class.getName(), true);
+            sendResponse(message, "Unable to make order: "+e.getMessage(), true);
             return;
         }
-        Objects.requireNonNull(orderDetails);
-
-        // Обрабатываем запрос
-        cartService.makeOrder(orderDetails.getUserId(), orderDetails.getCustomAddress());
-
         sendResponse(message, true, false);
     }
 
     public void addToCart(ConsumerRecord<String, String> message) throws JsonProcessingException {
-        cartService.addToCart(extractActionDTO(message));
+
+        try{
+            cartService.addToCart(extractActionDTO(message));
+        }catch (Exception e){
+            sendResponse(message, "Unable to add to cart: "+e.getMessage(), true);
+            return;
+        }
 
         sendResponse(message, true, false);
     }
 
     public void changeAmount(ConsumerRecord<String, String> message) throws JsonProcessingException {
-        cartService.changeAmountOrDelete(extractActionDTO(message));
+        try{
+            cartService.changeAmountOrDelete(extractActionDTO(message));
+        }catch (Exception e){
+            sendResponse(message, "Unable to add to change amount: "+e.getMessage(), true);
+            return;
+        }
+
         sendResponse(message, true, false);
     }
     private ActionWithCartDTO extractActionDTO(ConsumerRecord<String, String> message) throws JsonProcessingException {
@@ -78,55 +88,47 @@ public class RequestProcessingService {
         }
         Objects.requireNonNull(actionDTO);
 
-        System.out.println(actionDTO);
-
         return actionDTO;
     }
 
     public void sendCart(ConsumerRecord<String, String> message) throws JsonProcessingException {
-
-        String userId;
+        List<ProductAndQuantity> cart;
         try {
-            userId = objectMapper.readValue(message.value(), String.class);
+            String userId = objectMapper.readValue(message.value(), String.class);
+            Objects.requireNonNull(userId);
+
+            cart = cartService.getCartByUserId(userId);
+
         } catch (Exception e) {
-            sendResponse(message, "Exception while parsing : "+ String.class.getName(), true);
+            sendResponse(message, "Unable to get cart details: "+e.getMessage(), true);
             return;
         }
-        Objects.requireNonNull(userId);
-
-        // Обрабатываем запрос
-        List<ProductAndQuantity> cart = cartService.getCartByUserId(userId);
-
         sendResponse(message, cart, false);
     }
 
     public void sendOrderHistory(ConsumerRecord<String, String> message) throws JsonProcessingException {
-        String userId;
+        OrdersHistory history;
         try {
-            userId = objectMapper.readValue(message.value(), String.class);
+            String userId = objectMapper.readValue(message.value(), String.class);
+            Objects.requireNonNull(userId);
+            history = historyService.getHistoryOfUserById(userId);
         } catch (Exception e) {
-            sendResponse(message, "Error while parsing data from json", true);
+            sendResponse(message, "Unable to get history of user:"+e.getMessage(), true);
             return;
         }
-        Objects.requireNonNull(userId);
-
-        OrdersHistory history= historyService.getHistoryOfUserById(userId);
-
         sendResponse(message, history, false);
     }
 
     public void sendWholeHistory(ConsumerRecord<String, String> message) throws JsonProcessingException {
-        Integer page;
+        List<OrdersHistory> history;
         try {
-            page = objectMapper.readValue(message.value(), Integer.class);
+            Integer page = objectMapper.readValue(message.value(), Integer.class);
+            Objects.requireNonNull(page);
+            history = historyService.getWholeHistory(page);
         } catch (Exception e) {
-            sendResponse(message, "Error while parsing data from json", true);
+            sendResponse(message, "Unable to get whole history", true);
             return;
         }
-        Objects.requireNonNull(page);
-
-        List<OrdersHistory> history= historyService.getWholeHistory(page);
-
         sendResponse(message, history, false);
     }
 
