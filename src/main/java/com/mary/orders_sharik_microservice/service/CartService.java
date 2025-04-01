@@ -1,13 +1,25 @@
 package com.mary.orders_sharik_microservice.service;
 
+import com.mary.orders_sharik_microservice.exception.MicroserviceExternalException;
+import com.mary.orders_sharik_microservice.exception.ValidationFailedException;
 import com.mary.orders_sharik_microservice.model.dto.request.ActionWithCartDTO;
+import com.mary.orders_sharik_microservice.model.dto.responce.ProductAndQuantity;
+import com.mary.orders_sharik_microservice.model.entity.OrdersHistory;
+import com.mary.orders_sharik_microservice.model.enums.OrderStatusEnum;
+import com.mary.orders_sharik_microservice.model.storage.Product;
 import com.mary.orders_sharik_microservice.model.storage.ProductIdAndQuantity;
+import com.mary.orders_sharik_microservice.service.kafka.KafkaProductService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 @RequiredArgsConstructor
 @Service
@@ -16,6 +28,8 @@ public class CartService {
     private final RedisTemplate<String, ProductIdAndQuantity> redisTemplate;
 
     private static final String CART_KEY_PREFIX = "cart:";
+    private final KafkaProductService kafkaProductService;
+    private final HistoryService historyService;
 
     public void addToCart(ActionWithCartDTO dto) {
         changeAmount(dto);
@@ -35,10 +49,6 @@ public class CartService {
                 if (dto.getQuantity() <= 0) {
                     redisTemplate.opsForList().remove(cartKey, 1, item);
                 } else {
-//                    if(item.getProduct().getAmountLeft()<item.getQuantity()) {
-//                        throw new ValidationFailedException("There is not enough product amount left");
-//                    }
-//                    change to request to product_microservice (get product by id)
                     item.setQuantity(dto.getQuantity());
                     redisTemplate.opsForList().set(cartKey, i, item);
                 }
@@ -48,37 +58,65 @@ public class CartService {
         }
     }
 
-    public List<ProductIdAndQuantity> getCartByUserId(String userId) {
+    public List<ProductAndQuantity> getCartByUserId(String userId) {
         String cartKey = CART_KEY_PREFIX + userId;
-        return redisTemplate.opsForList().range(cartKey, 0, -1);
+        List<ProductIdAndQuantity> idsAndQuantity = redisTemplate.opsForList().range(cartKey, 0, -1);
+
+        if (idsAndQuantity == null || idsAndQuantity.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        List<String> ids = idsAndQuantity.stream().map(ProductIdAndQuantity::getProductId).toList();
+        List<Product> products;
+        try {
+            products = kafkaProductService.requestProductsByIds(ids);
+        } catch (Exception e) {
+            throw new MicroserviceExternalException(e);
+        }
+
+        System.out.println("got products successfully :" + products);
+
+        return products.stream().map(product -> {
+            ProductAndQuantity productAndQuantity = new ProductAndQuantity();
+            productAndQuantity.setProduct(product);
+            productAndQuantity.setQuantity(
+                    idsAndQuantity.stream().filter(productIdAndQuantity ->
+                            productIdAndQuantity.getProductId().equals(product.getId())).findFirst().get().getQuantity()
+            );
+            return productAndQuantity;
+        }).collect(Collectors.toList());
     }
 
     private void changeAmount(ActionWithCartDTO dto) {
         String cartKey = CART_KEY_PREFIX + dto.getUserId();
+        System.out.println("i will read redis");
         List<ProductIdAndQuantity> cart = redisTemplate.opsForList().range(cartKey, 0, -1);
+        System.out.println("redis: "+ cart);
 
         if (cart == null || cart.isEmpty()) {
+            System.out.println("is empty");
             addToCart(dto, cartKey);
             return;
         }
 
         boolean isChanged = false;
         for (int i = 0; i < cart.size(); i++) {
+            System.out.println("here is an error");
             ProductIdAndQuantity item = cart.get(i);
+            System.out.println("item: "+item);
             if (item.getProductId().equals(dto.getProductId())) {
                 isChanged = true;
-
 
                 if (item.getQuantity() <= 0) {
                     redisTemplate.opsForList().remove(cartKey, 1, item);
                 } else {
-                    item.setQuantity(item.getQuantity() + (dto.getQuantity()));
-//                    if(item.getProduct().getAmountLeft()<item.getQuantity()) {
-//                        throw new ValidationFailedException("There is not enough product amount left");
-//                    }
-//                    change to request to product_microservice (get product by id)
-
+                    item.setQuantity(item.getQuantity() + dto.getQuantity());
+                    if(dto.getProductAmountLeft()<item.getQuantity()){
+                        throw new ValidationFailedException("Not enough product left");
+                    }
+                    System.out.println("i will write new quantity");
                     redisTemplate.opsForList().set(cartKey, i, item);
+                    System.out.println("wrote new quantity");
                 }
 
                 redisTemplate.expire(cartKey, 1, TimeUnit.HOURS);
@@ -91,15 +129,62 @@ public class CartService {
     }
 
     private void addToCart(ActionWithCartDTO dto, String cartKey){
-//        if(product.getAmountLeft()<dto.getQuantity()){
-//            throw new ValidationFailedException("There is not enough product amount left");
-//        }
-//        change to request to product_microservice (get product by id)
+        if(dto.getProductAmountLeft()<dto.getQuantity()){
+            throw new ValidationFailedException("Not enough product left");
+        }
 
         ProductIdAndQuantity paq = new ProductIdAndQuantity();
         paq.setProductId(dto.getProductId());
         paq.setQuantity(dto.getQuantity());
+
+        System.out.println("paq i will write"+paq);
+
         redisTemplate.opsForList().rightPush(cartKey, paq);
         redisTemplate.expire(cartKey, 1, TimeUnit.HOURS);
+    }
+
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public void makeOrder(String userId, String customAddress) {
+        moveToHistoryAndSetStatus(userId, OrderStatusEnum.CREATED, customAddress);
+    }
+
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public void emptyCart(String userId) {
+        moveToHistoryAndSetStatus(userId, OrderStatusEnum.CANCELLED, "");
+    }
+
+    private void moveToHistoryAndSetStatus(String userId, OrderStatusEnum status, String address) {
+        List<ProductAndQuantity> cart = getCartByUserId(userId);
+        if (cart == null || cart.isEmpty()) {
+            return;
+        }
+        OrdersHistory ordersHistory = historyService.getHistoryOfUserById(userId);
+
+        List<OrdersHistory.CartItem> cartItems = cart.stream()
+                .map(product ->{
+                    OrdersHistory.CartItem item = new OrdersHistory.CartItem();
+                    item.setProduct(product.getProduct());
+                    item.setQuantity(product.getQuantity());
+                    return item;
+                }).toList();
+
+        if(status==OrderStatusEnum.CREATED){
+            cart.forEach(productAndQuantity -> {
+                if(productAndQuantity.getProduct().getAmountLeft()<productAndQuantity.getQuantity()){
+                    throw new ValidationFailedException("Not enough product left:"+productAndQuantity.getProduct().getName());
+                }
+            });
+        }
+
+        OrdersHistory.Order order = new OrdersHistory.Order();
+        order.setItems(cartItems);
+        order.setStatus(status);
+        order.setCreatedAt(LocalDateTime.now());
+        order.setDeliveryAddress(address);
+
+        ordersHistory.getOrders().add(order);
+
+        historyService.updateHistory(ordersHistory);
+        redisTemplate.delete(CART_KEY_PREFIX + userId);
     }
 }

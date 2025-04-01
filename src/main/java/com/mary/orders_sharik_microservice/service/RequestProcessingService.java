@@ -3,8 +3,9 @@ package com.mary.orders_sharik_microservice.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mary.orders_sharik_microservice.model.dto.request.ActionWithCartDTO;
+import com.mary.orders_sharik_microservice.model.dto.request.OrderDetailsDTO;
+import com.mary.orders_sharik_microservice.model.dto.responce.ProductAndQuantity;
 import com.mary.orders_sharik_microservice.model.entity.OrdersHistory;
-import com.mary.orders_sharik_microservice.model.storage.ProductIdAndQuantity;
 import lombok.RequiredArgsConstructor;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -25,29 +26,47 @@ public class RequestProcessingService {
     private final CartService cartService;
     private final HistoryService historyService;
 
-    public void addToCart(ConsumerRecord<String, String> message) throws JsonProcessingException {
-        // Извлекаем данные из запроса
-        ActionWithCartDTO actionDTO = extractActionDTO(message);
+    public void emptyCart(ConsumerRecord<String, String> message) throws JsonProcessingException {
+        String userId;
+        try {
+            userId = objectMapper.readValue(message.value(), String.class);
+        } catch (Exception e) {
+            sendResponse(message, "Exception while parsing : "+ String.class.getName(), true);
+            return;
+        }
+        Objects.requireNonNull(userId);
 
         // Обрабатываем запрос
-        cartService.addToCart(actionDTO);
+        cartService.emptyCart(userId);
+
+        sendResponse(message, true, false);
+    }
+
+    public void makeOrder(ConsumerRecord<String, String> message) throws JsonProcessingException {
+        OrderDetailsDTO orderDetails;
+        try {
+            orderDetails = objectMapper.readValue(message.value(), OrderDetailsDTO.class);
+        } catch (Exception e) {
+            sendResponse(message, "Exception while parsing : "+ OrderDetailsDTO.class.getName(), true);
+            return;
+        }
+        Objects.requireNonNull(orderDetails);
+
+        // Обрабатываем запрос
+        cartService.makeOrder(orderDetails.getUserId(), orderDetails.getCustomAddress());
+
+        sendResponse(message, true, false);
+    }
+
+    public void addToCart(ConsumerRecord<String, String> message) throws JsonProcessingException {
+        cartService.addToCart(extractActionDTO(message));
 
         sendResponse(message, true, false);
     }
 
     public void changeAmount(ConsumerRecord<String, String> message) throws JsonProcessingException {
-        try {
-            // Извлекаем данные из запроса
-            ActionWithCartDTO actionDTO = extractActionDTO(message);
-
-            // Обрабатываем запрос
-            cartService.changeAmountOrDelete(actionDTO);
-
-            sendResponse(message, true, false);
-        } catch (Exception e) {
-
-            sendResponse(message, "External error", true);
-        }
+        cartService.changeAmountOrDelete(extractActionDTO(message));
+        sendResponse(message, true, false);
     }
     private ActionWithCartDTO extractActionDTO(ConsumerRecord<String, String> message) throws JsonProcessingException {
         ActionWithCartDTO actionDTO;
@@ -58,6 +77,9 @@ public class RequestProcessingService {
             throw e;
         }
         Objects.requireNonNull(actionDTO);
+
+        System.out.println(actionDTO);
+
         return actionDTO;
     }
 
@@ -65,17 +87,15 @@ public class RequestProcessingService {
 
         String userId;
         try {
-            userId = objectMapper.readValue( message.value(), String.class);
+            userId = objectMapper.readValue(message.value(), String.class);
         } catch (Exception e) {
             sendResponse(message, "Exception while parsing : "+ String.class.getName(), true);
-            throw e;
+            return;
         }
         Objects.requireNonNull(userId);
 
         // Обрабатываем запрос
-        List<ProductIdAndQuantity> cart = cartService.getCartByUserId(userId);
-
-//      todo: request a list of products from product_microservice
+        List<ProductAndQuantity> cart = cartService.getCartByUserId(userId);
 
         sendResponse(message, cart, false);
     }
@@ -85,8 +105,8 @@ public class RequestProcessingService {
         try {
             userId = objectMapper.readValue(message.value(), String.class);
         } catch (Exception e) {
-            sendResponse(message, "External error", true);
-            throw e;
+            sendResponse(message, "Error while parsing data from json", true);
+            return;
         }
         Objects.requireNonNull(userId);
 
@@ -95,7 +115,23 @@ public class RequestProcessingService {
         sendResponse(message, history, false);
     }
 
-    private <D> void sendResponse(ConsumerRecord<String, String> message, D data, boolean isError) throws JsonProcessingException {
+    public void sendWholeHistory(ConsumerRecord<String, String> message) throws JsonProcessingException {
+        Integer page;
+        try {
+            page = objectMapper.readValue(message.value(), Integer.class);
+        } catch (Exception e) {
+            sendResponse(message, "Error while parsing data from json", true);
+            return;
+        }
+        Objects.requireNonNull(page);
+
+        List<OrdersHistory> history= historyService.getWholeHistory(page);
+
+        sendResponse(message, history, false);
+    }
+
+    private <D> void sendResponse(ConsumerRecord<String, String> message, D data, boolean isError)
+            throws JsonProcessingException {
         // Сериализуем результат в JSON
         String resultJson = objectMapper.writeValueAsString(data);
 
@@ -106,13 +142,15 @@ public class RequestProcessingService {
                     .withPayload(resultJson)
                     .setHeader(KafkaHeaders.EXCEPTION_MESSAGE, resultJson)
                     .setHeader(KafkaHeaders.TOPIC, message.headers().lastHeader(KafkaHeaders.REPLY_TOPIC).value())
-                    .setHeader(KafkaHeaders.CORRELATION_ID, message.headers().lastHeader(KafkaHeaders.CORRELATION_ID).value())
+                    .setHeader(KafkaHeaders.CORRELATION_ID,
+                            message.headers().lastHeader(KafkaHeaders.CORRELATION_ID).value())
                     .build();
         }else{
             reply = MessageBuilder
                     .withPayload(resultJson)
                     .setHeader(KafkaHeaders.TOPIC, message.headers().lastHeader(KafkaHeaders.REPLY_TOPIC).value())
-                    .setHeader(KafkaHeaders.CORRELATION_ID, message.headers().lastHeader(KafkaHeaders.CORRELATION_ID).value())
+                    .setHeader(KafkaHeaders.CORRELATION_ID,
+                            message.headers().lastHeader(KafkaHeaders.CORRELATION_ID).value())
                     .build();
         }
         // Отправляем ответ в reply-topic

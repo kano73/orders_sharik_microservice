@@ -56,4 +56,8 @@ public class HistoryService {
         }));
         ordersHistoryRepository.saveAll(all);
     }
+
+    public void updateHistory(OrdersHistory ordersHistory) {
+        ordersHistoryRepository.save(ordersHistory);
+    }
 }

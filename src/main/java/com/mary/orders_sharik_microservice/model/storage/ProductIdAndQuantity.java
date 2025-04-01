@@ -1,25 +1,20 @@
 package com.mary.orders_sharik_microservice.model.storage;
 
-import lombok.Getter;
-import lombok.Setter;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.io.Serial;
 import java.io.Serializable;
 
-@Getter
-@Setter
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
 public class ProductIdAndQuantity implements Serializable {
     @Serial
-    private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = 6L;
 
     private String productId;
     private int quantity;
 
-    @Override
-    public String toString() {
-        return "ProductIdAndQuantity{" +
-                "productId=" + productId +
-                ", quantity=" + quantity +
-                '}';
-    }
 }
