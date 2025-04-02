@@ -1,6 +1,6 @@
 package com.mary.orders_sharik_microservice.model.entity;
 
-import com.mary.orders_sharik_microservice.model.enumClass.OrderStatusEnum;
+import com.mary.orders_sharik_microservice.model.enumClass.OrderStatus;
 import com.mary.orders_sharik_microservice.model.storage.Product;
 import lombok.Data;
 import org.springframework.data.annotation.Id;
@@ -23,7 +23,7 @@ public class OrdersHistory {
         private List<CartItem> items;
         private LocalDateTime createdAt;
         private String orderId;
-        private OrderStatusEnum status;
+        private OrderStatus status;
         private String deliveryAddress;
     }
 

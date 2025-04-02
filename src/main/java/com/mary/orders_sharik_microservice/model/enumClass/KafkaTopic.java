@@ -1,6 +1,6 @@
 package com.mary.orders_sharik_microservice.model.enumClass;
 
-public enum KafkaTopicEnum {
+public enum KafkaTopic {
     // PRODUCT
     PRODUCT_BY_FILTER_TOPIC,
     PRODUCT_BY_ID_TOPIC,

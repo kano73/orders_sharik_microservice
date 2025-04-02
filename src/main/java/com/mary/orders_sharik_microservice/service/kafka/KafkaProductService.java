@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.type.CollectionType;
 import com.mary.orders_sharik_microservice.exception.MicroserviceExternalException;
 import com.mary.orders_sharik_microservice.exception.ValidationFailedException;
-import com.mary.orders_sharik_microservice.model.enumClass.KafkaTopicEnum;
+import com.mary.orders_sharik_microservice.model.enumClass.KafkaTopic;
 import com.mary.orders_sharik_microservice.model.storage.Product;
 import lombok.RequiredArgsConstructor;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -36,7 +36,7 @@ public class KafkaProductService {
         String valueJson = objectMapper.writeValueAsString(ids);
 
         CompletableFuture<ConsumerRecord<String, String>> futureResponse =
-                makeRequest(KafkaTopicEnum.PRODUCT_LIST_BY_IDS_TOPIC.name(), valueJson);
+                makeRequest(KafkaTopic.PRODUCT_LIST_BY_IDS_TOPIC.name(), valueJson);
 
         return (List<Product>) futureResponse
                 .thenApply(response -> {
@@ -63,7 +63,7 @@ public class KafkaProductService {
         record.headers().add(new RecordHeader(KafkaHeaders.CORRELATION_ID,
                 correlationId.getBytes()));
         record.headers().add(new RecordHeader(KafkaHeaders.REPLY_TOPIC,
-                KafkaTopicEnum.REPLY_TOPIC.name().getBytes()));
+                KafkaTopic.REPLY_TOPIC.name().getBytes()));
 
         // Отправляем запрос и ожидаем ответ (с таймаутом 5 секунд)
         RequestReplyFuture<String, String, String> future =

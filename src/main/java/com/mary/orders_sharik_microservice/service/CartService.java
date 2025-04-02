@@ -5,7 +5,7 @@ import com.mary.orders_sharik_microservice.exception.ValidationFailedException;
 import com.mary.orders_sharik_microservice.model.dto.request.ActionWithCartDTO;
 import com.mary.orders_sharik_microservice.model.dto.responce.ProductAndQuantity;
 import com.mary.orders_sharik_microservice.model.entity.OrdersHistory;
-import com.mary.orders_sharik_microservice.model.enumClass.OrderStatusEnum;
+import com.mary.orders_sharik_microservice.model.enumClass.OrderStatus;
 import com.mary.orders_sharik_microservice.model.storage.Product;
 import com.mary.orders_sharik_microservice.model.storage.ProductIdAndQuantity;
 import com.mary.orders_sharik_microservice.service.kafka.KafkaProductService;
@@ -103,15 +103,15 @@ public class CartService {
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public void makeOrder(String userId, String customAddress) {
-        moveToHistoryAndSetStatus(userId, OrderStatusEnum.CREATED, customAddress);
+        moveToHistoryAndSetStatus(userId, OrderStatus.CREATED, customAddress);
     }
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public void emptyCart(String userId) {
-        moveToHistoryAndSetStatus(userId, OrderStatusEnum.CANCELLED, "");
+        moveToHistoryAndSetStatus(userId, OrderStatus.CANCELLED, "");
     }
 
-    private void moveToHistoryAndSetStatus(String userId, OrderStatusEnum status, String address) {
+    private void moveToHistoryAndSetStatus(String userId, OrderStatus status, String address) {
         List<ProductAndQuantity> cart = getCartByUserId(userId);
         if (cart == null || cart.isEmpty()) {
             return;
@@ -129,7 +129,7 @@ public class CartService {
             return item;
         }).toList();
 
-        if (status == OrderStatusEnum.CREATED) {
+        if (status == OrderStatus.CREATED) {
             cart.forEach(productAndQuantity -> {
                 if (productAndQuantity.getProduct().getAmountLeft() < productAndQuantity.getQuantity()) {
                     throw new ValidationFailedException("Not enough product left: " + productAndQuantity.getProduct().getName());

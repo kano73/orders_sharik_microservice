@@ -1,6 +1,6 @@
 package com.mary.orders_sharik_microservice.config;
 
-import com.mary.orders_sharik_microservice.model.enumClass.KafkaTopicEnum;
+import com.mary.orders_sharik_microservice.model.enumClass.KafkaTopic;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.core.ConsumerFactory;
@@ -24,7 +24,7 @@ public class KafkaConfig {
     public KafkaMessageListenerContainer<String, String>
     replyContainer(ConsumerFactory<String, String> cf)
     {
-        ContainerProperties containerProperties = new ContainerProperties(KafkaTopicEnum.REPLY_TOPIC.name());
+        ContainerProperties containerProperties = new ContainerProperties(KafkaTopic.REPLY_TOPIC.name());
         return new KafkaMessageListenerContainer<>(cf, containerProperties);
     }
 }

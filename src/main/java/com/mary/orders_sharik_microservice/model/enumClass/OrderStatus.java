@@ -1,6 +1,6 @@
 package com.mary.orders_sharik_microservice.model.enumClass;
 
-public enum OrderStatusEnum {
+public enum OrderStatus {
     CANCELLED,   // empty cart
     CREATED,
     PROCESSING,  // In progress (assembly, packaging)

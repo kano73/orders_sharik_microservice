@@ -1,7 +1,7 @@
 package com.mary.orders_sharik_microservice.service;
 
 import com.mary.orders_sharik_microservice.model.entity.OrdersHistory;
-import com.mary.orders_sharik_microservice.model.enumClass.OrderStatusEnum;
+import com.mary.orders_sharik_microservice.model.enumClass.OrderStatus;
 import com.mary.orders_sharik_microservice.repository.OrdersHistoryRepository;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -44,12 +44,12 @@ public class HistoryService {
     @Scheduled(cron = "0 0 * * * *")
     public void simulateStatusModification() {
         System.out.println("simulateStatusModification");
-        List<OrderStatusEnum> statusEnumList = Arrays.asList(OrderStatusEnum.values());
+        List<OrderStatus> statusEnumList = Arrays.asList(OrderStatus.values());
         List<OrdersHistory> all = ordersHistoryRepository.findAll();
         all.forEach(ordersHistory -> ordersHistory.getOrders().forEach(order -> {
-            OrderStatusEnum status = order.getStatus();
+            OrderStatus status = order.getStatus();
             int index = statusEnumList.indexOf(status);
-            if(index != statusEnumList.size() - 3 && status!=OrderStatusEnum.CANCELLED) {
+            if(index != statusEnumList.size() - 3 && status!= OrderStatus.CANCELLED) {
                 status = statusEnumList.get(index + 1);
                 order.setStatus(status);
             }
