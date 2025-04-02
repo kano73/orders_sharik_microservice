@@ -14,7 +14,7 @@ public class KafkaConsumerService {
 
     @SneakyThrows
     @KafkaListener(
-            topics = "#{T(com.mary.orders_sharik_microservice.model.enums.KafkaTopicEnum)." +
+            topics = "#{T(com.mary.orders_sharik_microservice.model.enumClass.KafkaTopicEnum)." +
                     "CART_EMPTY_TOPIC.name()}",
             groupId = "cart_history_group")
     public void emptyCart(ConsumerRecord<String, String> message){
@@ -23,7 +23,7 @@ public class KafkaConsumerService {
 
     @SneakyThrows
     @KafkaListener(
-            topics = "#{T(com.mary.orders_sharik_microservice.model.enums.KafkaTopicEnum)." +
+            topics = "#{T(com.mary.orders_sharik_microservice.model.enumClass.KafkaTopicEnum)." +
                     "CART_ORDER_TOPIC.name()}",
             groupId = "cart_history_group")
     public void makeOrder(ConsumerRecord<String,String> message){
@@ -32,7 +32,7 @@ public class KafkaConsumerService {
 
     @SneakyThrows
     @KafkaListener(
-            topics = "#{T(com.mary.orders_sharik_microservice.model.enums.KafkaTopicEnum)." +
+            topics = "#{T(com.mary.orders_sharik_microservice.model.enumClass.KafkaTopicEnum)." +
                     "CART_ADD_TOPIC.name()}",
             groupId = "cart_history_group")
     public void addToCart(ConsumerRecord<String,String> message){
@@ -41,7 +41,7 @@ public class KafkaConsumerService {
 
     @SneakyThrows
     @KafkaListener(
-            topics = "#{T(com.mary.orders_sharik_microservice.model.enums.KafkaTopicEnum)." +
+            topics = "#{T(com.mary.orders_sharik_microservice.model.enumClass.KafkaTopicEnum)." +
                     "CART_CHANGE_AMOUNT_TOPIC.name()}",
             groupId = "cart_history_group")
     public void changeAmount(ConsumerRecord<String,String> message){
@@ -50,7 +50,7 @@ public class KafkaConsumerService {
 
     @SneakyThrows
     @KafkaListener(
-            topics = "#{T(com.mary.orders_sharik_microservice.model.enums.KafkaTopicEnum)." +
+            topics = "#{T(com.mary.orders_sharik_microservice.model.enumClass.KafkaTopicEnum)." +
                     "CART_VIEW_TOPIC.name()}",
             groupId = "cart_history_group")
     public void viewCart(ConsumerRecord<String,String> message){
@@ -59,7 +59,7 @@ public class KafkaConsumerService {
 
     @SneakyThrows
     @KafkaListener(
-            topics = "#{T(com.mary.orders_sharik_microservice.model.enums.KafkaTopicEnum)." +
+            topics = "#{T(com.mary.orders_sharik_microservice.model.enumClass.KafkaTopicEnum)." +
                     "HISTORY_VIEW_TOPIC.name()}",
             groupId = "cart_history_group")
     public void viewHistory(ConsumerRecord<String,String> message){
@@ -68,7 +68,7 @@ public class KafkaConsumerService {
 
     @SneakyThrows
     @KafkaListener(
-            topics = "#{T(com.mary.orders_sharik_microservice.model.enums.KafkaTopicEnum)." +
+            topics = "#{T(com.mary.orders_sharik_microservice.model.enumClass.KafkaTopicEnum)." +
                     "HISTORY_ALL_TOPIC.name()}",
             groupId = "cart_history_group")
     public void viewAllHistories(ConsumerRecord<String,String> message){

@@ -1,4 +1,4 @@
-package com.mary.orders_sharik_microservice.model.enums;
+package com.mary.orders_sharik_microservice.model.enumClass;
 
 public enum OrderStatusEnum {
     CANCELLED,   // empty cart

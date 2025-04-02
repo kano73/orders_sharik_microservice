@@ -1,6 +1,6 @@
 package com.mary.orders_sharik_microservice.model.entity;
 
-import com.mary.orders_sharik_microservice.model.enums.OrderStatusEnum;
+import com.mary.orders_sharik_microservice.model.enumClass.OrderStatusEnum;
 import com.mary.orders_sharik_microservice.model.storage.Product;
 import lombok.Data;
 import org.springframework.data.annotation.Id;

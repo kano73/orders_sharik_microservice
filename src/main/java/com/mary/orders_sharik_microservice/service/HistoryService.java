@@ -1,7 +1,7 @@
 package com.mary.orders_sharik_microservice.service;
 
 import com.mary.orders_sharik_microservice.model.entity.OrdersHistory;
-import com.mary.orders_sharik_microservice.model.enums.OrderStatusEnum;
+import com.mary.orders_sharik_microservice.model.enumClass.OrderStatusEnum;
 import com.mary.orders_sharik_microservice.repository.OrdersHistoryRepository;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;

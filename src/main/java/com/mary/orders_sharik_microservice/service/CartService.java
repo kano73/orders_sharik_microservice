@@ -5,7 +5,7 @@ import com.mary.orders_sharik_microservice.exception.ValidationFailedException;
 import com.mary.orders_sharik_microservice.model.dto.request.ActionWithCartDTO;
 import com.mary.orders_sharik_microservice.model.dto.responce.ProductAndQuantity;
 import com.mary.orders_sharik_microservice.model.entity.OrdersHistory;
-import com.mary.orders_sharik_microservice.model.enums.OrderStatusEnum;
+import com.mary.orders_sharik_microservice.model.enumClass.OrderStatusEnum;
 import com.mary.orders_sharik_microservice.model.storage.Product;
 import com.mary.orders_sharik_microservice.model.storage.ProductIdAndQuantity;
 import com.mary.orders_sharik_microservice.service.kafka.KafkaProductService;
@@ -25,37 +25,56 @@ import java.util.stream.Collectors;
 @Service
 public class CartService {
 
-    private final RedisTemplate<String, ProductIdAndQuantity> redisTemplate;
-
     private static final String CART_KEY_PREFIX = "cart:";
+    private final RedisTemplate<String, ProductIdAndQuantity> redisTemplate;
     private final KafkaProductService kafkaProductService;
     private final HistoryService historyService;
 
     public void addToCart(ActionWithCartDTO dto) {
-        changeAmount(dto);
+        String cartKey = CART_KEY_PREFIX + dto.getUserId();
+
+        if (dto.getProductAmountLeft() < dto.getQuantity()) {
+            throw new ValidationFailedException("Not enough product left");
+        }
+
+        String productKey = dto.getProductId();
+        ProductIdAndQuantity existingItem = (ProductIdAndQuantity) redisTemplate.opsForHash().get(cartKey, productKey);
+
+        if (existingItem == null) {
+            existingItem = new ProductIdAndQuantity();
+            existingItem.setProductId(productKey);
+            existingItem.setQuantity(dto.getQuantity());
+        } else {
+            int newQuantity = existingItem.getQuantity() + dto.getQuantity();
+            if (dto.getProductAmountLeft() < newQuantity) {
+                throw new ValidationFailedException("Not enough product left");
+            }
+            existingItem.setQuantity(newQuantity);
+        }
+
+        redisTemplate.opsForHash().put(cartKey, productKey, existingItem);
+        redisTemplate.expire(cartKey, 1, TimeUnit.HOURS);
+
     }
 
     public void changeAmountOrDelete(ActionWithCartDTO dto) {
         String cartKey = CART_KEY_PREFIX + dto.getUserId();
-        List<ProductIdAndQuantity> cart = redisTemplate.opsForList().range(cartKey, 0, -1);
+        String productKey = dto.getProductId();
 
-        if (cart == null || cart.isEmpty()) {
+        ProductIdAndQuantity item = (ProductIdAndQuantity) redisTemplate.opsForHash().get(cartKey, productKey);
+
+        if (item == null) {
             return;
         }
 
-        for (int i = 0; i < cart.size(); i++) {
-            ProductIdAndQuantity item = cart.get(i);
-            if (item.getProductId().equals(dto.getProductId())) {
-                if (dto.getQuantity() <= 0) {
-                    redisTemplate.opsForList().remove(cartKey, 1, item);
-                } else {
-                    item.setQuantity(dto.getQuantity());
-                    redisTemplate.opsForList().set(cartKey, i, item);
-                }
-                redisTemplate.expire(cartKey, 1, TimeUnit.HOURS);
-                break;
-            }
+        if (dto.getQuantity() <= 0) {
+            redisTemplate.opsForHash().delete(cartKey, productKey);
+        } else {
+            item.setQuantity(dto.getQuantity());
+            redisTemplate.opsForHash().put(cartKey, productKey, item);
         }
+
+        redisTemplate.expire(cartKey, 1, TimeUnit.HOURS);
     }
 
     public List<ProductAndQuantity> getCartByUserId(String userId) {
@@ -77,59 +96,9 @@ public class CartService {
         return products.stream().map(product -> {
             ProductAndQuantity productAndQuantity = new ProductAndQuantity();
             productAndQuantity.setProduct(product);
-            productAndQuantity.setQuantity(
-                    idsAndQuantity.stream().filter(productIdAndQuantity ->
-                            productIdAndQuantity.getProductId().equals(product.getId())).findFirst().get().getQuantity()
-            );
+            productAndQuantity.setQuantity(idsAndQuantity.stream().filter(productIdAndQuantity -> productIdAndQuantity.getProductId().equals(product.getId())).findFirst().get().getQuantity());
             return productAndQuantity;
         }).collect(Collectors.toList());
-    }
-
-    private void changeAmount(ActionWithCartDTO dto) {
-        String cartKey = CART_KEY_PREFIX + dto.getUserId();
-        List<ProductIdAndQuantity> cart = redisTemplate.opsForList().range(cartKey, 0, -1);
-
-        if (cart == null || cart.isEmpty()) {
-            addToCart(dto, cartKey);
-            return;
-        }
-
-        boolean isChanged = false;
-        for (int i = 0; i < cart.size(); i++) {
-            ProductIdAndQuantity item = cart.get(i);
-            if (item.getProductId().equals(dto.getProductId())) {
-                isChanged = true;
-
-                if (item.getQuantity() <= 0) {
-                    redisTemplate.opsForList().remove(cartKey, 1, item);
-                } else {
-                    item.setQuantity(item.getQuantity() + dto.getQuantity());
-                    if(dto.getProductAmountLeft()<item.getQuantity()){
-                        throw new ValidationFailedException("Not enough product left");
-                    }
-                    redisTemplate.opsForList().set(cartKey, i, item);
-                }
-
-                redisTemplate.expire(cartKey, 1, TimeUnit.HOURS);
-                break;
-            }
-        }
-        if(!isChanged){
-            addToCart(dto, cartKey);
-        }
-    }
-
-    private void addToCart(ActionWithCartDTO dto, String cartKey){
-        if(dto.getProductAmountLeft()<dto.getQuantity()){
-            throw new ValidationFailedException("Not enough product left");
-        }
-
-        ProductIdAndQuantity paq = new ProductIdAndQuantity();
-        paq.setProductId(dto.getProductId());
-        paq.setQuantity(dto.getQuantity());
-
-        redisTemplate.opsForList().rightPush(cartKey, paq);
-        redisTemplate.expire(cartKey, 1, TimeUnit.HOURS);
     }
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
@@ -149,22 +118,21 @@ public class CartService {
         }
         OrdersHistory ordersHistory = historyService.getHistoryOfUserById(userId);
 
-        List<OrdersHistory.CartItem> cartItems = cart.stream()
-                .map(paq ->{
-                    if(!paq.getProduct().isAvailable()){
-                        throw new ValidationFailedException("Product is not available: "+paq.getProduct().getName());
-                    }
+        List<OrdersHistory.CartItem> cartItems = cart.stream().map(paq -> {
+            if (!paq.getProduct().isAvailable()) {
+                throw new ValidationFailedException("Product is not available: " + paq.getProduct().getName());
+            }
 
-                    OrdersHistory.CartItem item = new OrdersHistory.CartItem();
-                    item.setProduct(paq.getProduct());
-                    item.setQuantity(paq.getQuantity());
-                    return item;
-                }).toList();
+            OrdersHistory.CartItem item = new OrdersHistory.CartItem();
+            item.setProduct(paq.getProduct());
+            item.setQuantity(paq.getQuantity());
+            return item;
+        }).toList();
 
-        if(status==OrderStatusEnum.CREATED){
+        if (status == OrderStatusEnum.CREATED) {
             cart.forEach(productAndQuantity -> {
-                if(productAndQuantity.getProduct().getAmountLeft()<productAndQuantity.getQuantity()){
-                    throw new ValidationFailedException("Not enough product left: "+productAndQuantity.getProduct().getName());
+                if (productAndQuantity.getProduct().getAmountLeft() < productAndQuantity.getQuantity()) {
+                    throw new ValidationFailedException("Not enough product left: " + productAndQuantity.getProduct().getName());
                 }
             });
         }

@@ -1,6 +1,6 @@
 package com.mary.orders_sharik_microservice.config;
 
-import com.mary.orders_sharik_microservice.model.enums.KafkaTopicEnum;
+import com.mary.orders_sharik_microservice.model.enumClass.KafkaTopicEnum;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.core.ConsumerFactory;

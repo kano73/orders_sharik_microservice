@@ -29,9 +29,9 @@ public class RedisConfig {
     public RedisTemplate<String, ProductIdAndQuantity> redisTemplate(LettuceConnectionFactory connectionFactory) {
         RedisTemplate<String, ProductIdAndQuantity> template = new RedisTemplate<>();
         template.setConnectionFactory(connectionFactory);
-        template.setKeySerializer(new StringRedisSerializer());
+        template.setKeySerializer(new GenericJackson2JsonRedisSerializer());
         template.setValueSerializer(new GenericJackson2JsonRedisSerializer());
-        template.setHashKeySerializer(new StringRedisSerializer());
+        template.setHashKeySerializer(new GenericJackson2JsonRedisSerializer());
         template.setHashValueSerializer(new GenericJackson2JsonRedisSerializer());
         return template;
     }

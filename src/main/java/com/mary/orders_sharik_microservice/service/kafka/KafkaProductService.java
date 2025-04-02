@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.type.CollectionType;
 import com.mary.orders_sharik_microservice.exception.MicroserviceExternalException;
 import com.mary.orders_sharik_microservice.exception.ValidationFailedException;
-import com.mary.orders_sharik_microservice.model.enums.KafkaTopicEnum;
+import com.mary.orders_sharik_microservice.model.enumClass.KafkaTopicEnum;
 import com.mary.orders_sharik_microservice.model.storage.Product;
 import lombok.RequiredArgsConstructor;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
