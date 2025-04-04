@@ -3,10 +3,12 @@ package com.mary.orders_sharik_microservice.consumer;
 import com.mary.orders_sharik_microservice.service.RequestProcessingService;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
 
+@Slf4j
 @RequiredArgsConstructor
 @Service
 public class KafkaConsumerService {
@@ -54,6 +56,7 @@ public class KafkaConsumerService {
                     "CART_VIEW_TOPIC.name()}",
             groupId = "cart_history_group")
     public void viewCart(ConsumerRecord<String,String> message){
+        log.info("got request for view cart ");
         requestProcessingService.sendCart(message);
     }
 

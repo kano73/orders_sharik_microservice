@@ -10,6 +10,8 @@ import com.mary.orders_sharik_microservice.model.storage.Product;
 import com.mary.orders_sharik_microservice.model.storage.ProductIdAndQuantity;
 import com.mary.orders_sharik_microservice.service.kafka.KafkaProductService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.HashOperations;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
@@ -21,6 +23,7 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
+@Slf4j
 @RequiredArgsConstructor
 @Service
 public class CartService {
@@ -38,21 +41,22 @@ public class CartService {
         }
 
         String productKey = dto.getProductId();
-        ProductIdAndQuantity existingItem = (ProductIdAndQuantity) redisTemplate.opsForHash().get(cartKey, productKey);
+        HashOperations<String, String, ProductIdAndQuantity> hashOps = redisTemplate.opsForHash();
+        ProductIdAndQuantity item = hashOps.get(cartKey, productKey);
 
-        if (existingItem == null) {
-            existingItem = new ProductIdAndQuantity();
-            existingItem.setProductId(productKey);
-            existingItem.setQuantity(dto.getQuantity());
+        if (item == null) {
+            item = new ProductIdAndQuantity();
+            item.setProductId(productKey);
+            item.setQuantity(dto.getQuantity());
         } else {
-            int newQuantity = existingItem.getQuantity() + dto.getQuantity();
+            int newQuantity = item.getQuantity() + dto.getQuantity();
             if (dto.getProductAmountLeft() < newQuantity) {
                 throw new ValidationFailedException("Not enough product left");
             }
-            existingItem.setQuantity(newQuantity);
+            item.setQuantity(newQuantity);
         }
 
-        redisTemplate.opsForHash().put(cartKey, productKey, existingItem);
+        redisTemplate.opsForHash().put(cartKey, productKey, item);
         redisTemplate.expire(cartKey, 1, TimeUnit.HOURS);
 
     }
@@ -61,7 +65,8 @@ public class CartService {
         String cartKey = CART_KEY_PREFIX + dto.getUserId();
         String productKey = dto.getProductId();
 
-        ProductIdAndQuantity item = (ProductIdAndQuantity) redisTemplate.opsForHash().get(cartKey, productKey);
+        HashOperations<String, String, ProductIdAndQuantity> hashOps = redisTemplate.opsForHash();
+        ProductIdAndQuantity item = hashOps.get(cartKey, productKey);
 
         if (item == null) {
             return;
@@ -79,17 +84,24 @@ public class CartService {
 
     public List<ProductAndQuantity> getCartByUserId(String userId) {
         String cartKey = CART_KEY_PREFIX + userId;
-        List<ProductIdAndQuantity> idsAndQuantity = redisTemplate.opsForList().range(cartKey, 0, -1);
+        HashOperations<String, String, ProductIdAndQuantity> hashOps = redisTemplate.opsForHash();
 
-        if (idsAndQuantity == null || idsAndQuantity.isEmpty()) {
+        List<ProductIdAndQuantity> idsAndQuantity = hashOps.values(cartKey);
+
+        if (idsAndQuantity.isEmpty()) {
             return new ArrayList<>();
         }
 
         List<String> ids = idsAndQuantity.stream().map(ProductIdAndQuantity::getProductId).toList();
+
+        log.info("ids of products in redis: {}", ids);
+
         List<Product> products;
         try {
+            log.info("gonna request prods");
             products = kafkaProductService.requestProductsByIds(ids);
         } catch (Exception e) {
+            log.error("e: ", e);
             throw new MicroserviceExternalException(e);
         }
 

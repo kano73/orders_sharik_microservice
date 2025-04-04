@@ -7,6 +7,7 @@ import com.mary.orders_sharik_microservice.model.dto.request.OrderDetailsDTO;
 import com.mary.orders_sharik_microservice.model.dto.responce.ProductAndQuantity;
 import com.mary.orders_sharik_microservice.model.entity.OrdersHistory;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.support.KafkaHeaders;
@@ -17,6 +18,7 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.Objects;
 
+@Slf4j
 @RequiredArgsConstructor
 @Service
 public class RequestProcessingService {
@@ -94,12 +96,17 @@ public class RequestProcessingService {
     public void sendCart(ConsumerRecord<String, String> message) throws JsonProcessingException {
         List<ProductAndQuantity> cart;
         try {
+            log.info("gonna parse userId");
             String userId = objectMapper.readValue(message.value(), String.class);
             Objects.requireNonNull(userId);
+            log.info("id: {}", userId);
 
             cart = cartService.getCartByUserId(userId);
 
+            log.info("cart: {}", cart);
+
         } catch (Exception e) {
+            log.error("e: ", e);
             sendResponse(message, "Unable to get cart details: "+e.getMessage(), true);
             return;
         }
