@@ -44,11 +44,8 @@ public class KafkaProductService {
                 .thenApply(response -> {
                     CollectionType listType = objectMapper.getTypeFactory().constructCollectionType(List.class, Product.class);
                     try {
-                        List<Product> prods = objectMapper.readValue(response.value(), listType);
 
-                        log.info("product list from prod_microservice: {}", prods);
-
-                        return prods;
+                        return objectMapper.<List<Product>>readValue(response.value(), listType);
                     } catch (JsonProcessingException e) {
                         log.error("e: ", e);
                         throw new ValidationFailedException(e);
@@ -72,9 +69,6 @@ public class KafkaProductService {
         record.headers().add(new RecordHeader(KafkaHeaders.REPLY_TOPIC,
                 KafkaTopic.REPLY_TOPIC.name().getBytes()));
 
-
-        log.info("making request and waiting for response...");
-        // Отправляем запрос и ожидаем ответ (с таймаутом 5 секунд)
         RequestReplyFuture<String, String, String> future =
                 replyingKafkaTemplate.sendAndReceive(record, Duration.ofSeconds(5));
 
@@ -83,9 +77,6 @@ public class KafkaProductService {
             try {
                 // Получаем ответ
                 ConsumerRecord<String, String> response = future.get();
-
-                log.info("response: correlationId={}, value={}", correlationId, value);
-
                 for (Header header : response.headers()) {
                     if (header.key().equals(KafkaHeaders.EXCEPTION_MESSAGE)) {
                         String string = new String(header.value(), StandardCharsets.UTF_8);

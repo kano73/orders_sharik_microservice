@@ -94,11 +94,8 @@ public class CartService {
 
         List<String> ids = idsAndQuantity.stream().map(ProductIdAndQuantity::getProductId).toList();
 
-        log.info("ids of products in redis: {}", ids);
-
         List<Product> products;
         try {
-            log.info("gonna request prods");
             products = kafkaProductService.requestProductsByIds(ids);
         } catch (Exception e) {
             log.error("e: ", e);

@@ -56,7 +56,6 @@ public class KafkaConsumerService {
                     "CART_VIEW_TOPIC.name()}",
             groupId = "cart_history_group")
     public void viewCart(ConsumerRecord<String,String> message){
-        log.info("got request for view cart ");
         requestProcessingService.sendCart(message);
     }
 

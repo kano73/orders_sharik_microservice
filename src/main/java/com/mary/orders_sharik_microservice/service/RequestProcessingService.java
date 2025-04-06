@@ -96,14 +96,13 @@ public class RequestProcessingService {
     public void sendCart(ConsumerRecord<String, String> message) throws JsonProcessingException {
         List<ProductAndQuantity> cart;
         try {
-            log.info("gonna parse userId");
+
             String userId = objectMapper.readValue(message.value(), String.class);
             Objects.requireNonNull(userId);
-            log.info("id: {}", userId);
+
 
             cart = cartService.getCartByUserId(userId);
 
-            log.info("cart: {}", cart);
 
         } catch (Exception e) {
             log.error("e: ", e);
