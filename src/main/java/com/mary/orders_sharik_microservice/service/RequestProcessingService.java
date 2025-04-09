@@ -29,9 +29,8 @@ public class RequestProcessingService {
     private final HistoryService historyService;
 
     public void emptyCart(ConsumerRecord<String, String> message) throws JsonProcessingException {
-        String userId;
         try {
-            userId = objectMapper.readValue(message.value(), String.class);
+            String userId = objectMapper.readValue(message.value(), String.class);
 
             Objects.requireNonNull(userId);
 
@@ -40,15 +39,12 @@ public class RequestProcessingService {
             sendResponse(message, "Unable to empty cart: "+e.getMessage(), true);
             return;
         }
-
-
         sendResponse(message, true, false);
     }
 
     public void makeOrder(ConsumerRecord<String, String> message) throws JsonProcessingException {
-        OrderDetailsDTO orderDetails;
         try {
-            orderDetails = objectMapper.readValue(message.value(), OrderDetailsDTO.class);
+            OrderDetailsDTO orderDetails = objectMapper.readValue(message.value(), OrderDetailsDTO.class);
             Objects.requireNonNull(orderDetails);
             cartService.makeOrder(orderDetails.getUserId(), orderDetails.getCustomAddress());
         } catch (Exception e) {
@@ -59,14 +55,12 @@ public class RequestProcessingService {
     }
 
     public void addToCart(ConsumerRecord<String, String> message) throws JsonProcessingException {
-
         try{
             cartService.addToCart(extractActionDTO(message));
         }catch (Exception e){
             sendResponse(message, "Unable to add to cart: "+e.getMessage(), true);
             return;
         }
-
         sendResponse(message, true, false);
     }
 
@@ -77,7 +71,6 @@ public class RequestProcessingService {
             sendResponse(message, "Unable to add to change amount: "+e.getMessage(), true);
             return;
         }
-
         sendResponse(message, true, false);
     }
     private ActionWithCartDTO extractActionDTO(ConsumerRecord<String, String> message) throws JsonProcessingException {
@@ -96,14 +89,10 @@ public class RequestProcessingService {
     public void sendCart(ConsumerRecord<String, String> message) throws JsonProcessingException {
         List<ProductAndQuantity> cart;
         try {
-
             String userId = objectMapper.readValue(message.value(), String.class);
             Objects.requireNonNull(userId);
 
-
             cart = cartService.getCartByUserId(userId);
-
-
         } catch (Exception e) {
             log.error("e: ", e);
             sendResponse(message, "Unable to get cart details: "+e.getMessage(), true);
@@ -140,10 +129,8 @@ public class RequestProcessingService {
 
     private <D> void sendResponse(ConsumerRecord<String, String> message, D data, boolean isError)
             throws JsonProcessingException {
-        // Сериализуем результат в JSON
         String resultJson = objectMapper.writeValueAsString(data);
 
-        // Создаем ответное сообщение
         Message<String> reply;
         if(isError){
             reply = MessageBuilder
@@ -161,7 +148,6 @@ public class RequestProcessingService {
                             message.headers().lastHeader(KafkaHeaders.CORRELATION_ID).value())
                     .build();
         }
-        // Отправляем ответ в reply-topic
         kafkaTemplate.send(reply);
     }
 }

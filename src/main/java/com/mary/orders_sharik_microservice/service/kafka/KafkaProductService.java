@@ -40,7 +40,7 @@ public class KafkaProductService {
         CompletableFuture<ConsumerRecord<String, String>> futureResponse =
                 makeRequest(KafkaTopic.PRODUCT_LIST_BY_IDS_TOPIC.name(), valueJson);
 
-        return (List<Product>) futureResponse
+        return futureResponse
                 .thenApply(response -> {
                     CollectionType listType = objectMapper.getTypeFactory().constructCollectionType(List.class, Product.class);
                     try {
