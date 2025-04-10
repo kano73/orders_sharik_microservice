@@ -24,19 +24,20 @@ public class HistoryService {
     private Integer PAGE_SIZE;
 
     public OrdersHistory getHistoryOfUserById(String userId) {
-        return ordersHistoryRepository.findByUserId(userId)
-                .orElseGet(() -> {
-                    OrdersHistory newOrderHistory = new OrdersHistory();
-                    newOrderHistory.setUserId(userId);
-                    return newOrderHistory;
-                });
+        return ordersHistoryRepository.findByUserId(userId).orElseGet(() -> {
+            OrdersHistory newOrderHistory = new OrdersHistory();
+            newOrderHistory.setUserId(userId);
+            return newOrderHistory;
+        });
     }
 
     public List<OrdersHistory> getWholeHistory(@NotBlank @Min(1) Integer page) {
-        return ordersHistoryRepository
-                .findAll(PageRequest.of(page - 1, PAGE_SIZE))
-                .getContent();
+        return ordersHistoryRepository.findAll(PageRequest.of(page - 1, PAGE_SIZE)).getContent();
 
+    }
+
+    public void updateHistory(OrdersHistory ordersHistory) {
+        ordersHistoryRepository.save(ordersHistory);
     }
 
 //    scheduled task
@@ -49,15 +50,11 @@ public class HistoryService {
         all.forEach(ordersHistory -> ordersHistory.getOrders().forEach(order -> {
             OrderStatus status = order.getStatus();
             int index = statusEnumList.indexOf(status);
-            if(index != statusEnumList.size() - 3 && status!= OrderStatus.CANCELLED) {
+            if (index != statusEnumList.size() - 3 && status != OrderStatus.CANCELLED) {
                 status = statusEnumList.get(index + 1);
                 order.setStatus(status);
             }
         }));
         ordersHistoryRepository.saveAll(all);
-    }
-
-    public void updateHistory(OrdersHistory ordersHistory) {
-        ordersHistoryRepository.save(ordersHistory);
     }
 }

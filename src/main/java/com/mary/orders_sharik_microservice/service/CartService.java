@@ -105,7 +105,8 @@ public class CartService {
         return products.stream().map(product -> {
             ProductAndQuantity productAndQuantity = new ProductAndQuantity();
             productAndQuantity.setProduct(product);
-            productAndQuantity.setQuantity(idsAndQuantity.stream().filter(productIdAndQuantity -> productIdAndQuantity.getProductId().equals(product.getId())).findFirst().get().getQuantity());
+            productAndQuantity.setQuantity(idsAndQuantity.stream().filter(productIdAndQuantity ->
+                    productIdAndQuantity.getProductId().equals(product.getId())).findFirst().get().getQuantity());
             return productAndQuantity;
         }).collect(Collectors.toList());
     }

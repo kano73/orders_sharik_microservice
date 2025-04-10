@@ -40,34 +40,30 @@ public class KafkaProductService {
         CompletableFuture<ConsumerRecord<String, String>> futureResponse =
                 makeRequest(KafkaTopic.PRODUCT_LIST_BY_IDS_TOPIC.name(), valueJson);
 
-        return futureResponse
-                .thenApply(response -> {
-                    CollectionType listType = objectMapper.getTypeFactory().constructCollectionType(List.class, Product.class);
-                    try {
+        return futureResponse.thenApply(response -> {
+            CollectionType listType = objectMapper.getTypeFactory()
+                    .constructCollectionType(List.class, Product.class);
+            try {
 
-                        return objectMapper.<List<Product>>readValue(response.value(), listType);
-                    } catch (JsonProcessingException e) {
-                        log.error("e: ", e);
-                        throw new ValidationFailedException(e);
-                    }
-                })
-                .exceptionally(ex -> {
-                    throw new CompletionException(ex);
-                }).join();
+                return objectMapper.<List<Product>>readValue(response.value(), listType);
+            } catch (JsonProcessingException e) {
+                log.error("e: ", e);
+                throw new ValidationFailedException(e);
+            }
+        }).exceptionally(ex -> {
+            throw new CompletionException(ex);
+        }).join();
     }
 
     private CompletableFuture<ConsumerRecord<String, String>> makeRequest(String topic, String value)
             throws MicroserviceExternalException {
         // Создаем сообщение с заголовком reply-topic
-        ProducerRecord<String, String> record =
-                new ProducerRecord<>(topic, value);
+        ProducerRecord<String, String> record = new ProducerRecord<>(topic, value);
 
         // Добавляем заголовок с correlation ID
         String correlationId = UUID.randomUUID().toString();
-        record.headers().add(new RecordHeader(KafkaHeaders.CORRELATION_ID,
-                correlationId.getBytes()));
-        record.headers().add(new RecordHeader(KafkaHeaders.REPLY_TOPIC,
-                KafkaTopic.REPLY_TOPIC.name().getBytes()));
+        record.headers().add(new RecordHeader(KafkaHeaders.CORRELATION_ID, correlationId.getBytes()));
+        record.headers().add(new RecordHeader(KafkaHeaders.REPLY_TOPIC, KafkaTopic.REPLY_TOPIC.name().getBytes()));
 
         RequestReplyFuture<String, String, String> future =
                 replyingKafkaTemplate.sendAndReceive(record, Duration.ofSeconds(5));
@@ -81,13 +77,9 @@ public class KafkaProductService {
                     if (header.key().equals(KafkaHeaders.EXCEPTION_MESSAGE)) {
                         String string = new String(header.value(), StandardCharsets.UTF_8);
 
-                        log.error("here is an error from product_microservice: {}",string);
+                        log.error("here is an error from product_microservice: {}", string);
 
-                        throw new CompletionException(
-                                new MicroserviceExternalException(
-                                        string
-                                )
-                        );
+                        throw new CompletionException(new MicroserviceExternalException(string));
                     }
                 }
                 return response;

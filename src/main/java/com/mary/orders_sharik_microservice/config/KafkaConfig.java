@@ -13,17 +13,13 @@ import org.springframework.kafka.requestreply.ReplyingKafkaTemplate;
 public class KafkaConfig {
     @Bean
     public ReplyingKafkaTemplate<String, String, String>
-    replyingKafkaTemplate(
-            ProducerFactory<String, String> pf,
-            KafkaMessageListenerContainer<String, String> container)
-    {
+    replyingKafkaTemplate(ProducerFactory<String, String> pf,
+                          KafkaMessageListenerContainer<String, String> container) {
         return new ReplyingKafkaTemplate<>(pf, container);
     }
 
     @Bean
-    public KafkaMessageListenerContainer<String, String>
-    replyContainer(ConsumerFactory<String, String> cf)
-    {
+    public KafkaMessageListenerContainer<String, String> replyContainer(ConsumerFactory<String, String> cf) {
         ContainerProperties containerProperties = new ContainerProperties(KafkaTopic.REPLY_TOPIC.name());
         return new KafkaMessageListenerContainer<>(cf, containerProperties);
     }
