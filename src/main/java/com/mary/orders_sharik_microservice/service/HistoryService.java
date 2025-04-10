@@ -20,7 +20,7 @@ public class HistoryService {
 
     private final OrdersHistoryRepository ordersHistoryRepository;
 
-    @Value("${page.size.history}")
+    @Value("${page.size.history:9}")
     private Integer PAGE_SIZE;
 
     public OrdersHistory getHistoryOfUserById(String userId) {
